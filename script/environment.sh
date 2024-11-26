@@ -1,5 +1,3 @@
-# In the nano script
-
 #!/bin/bash
 
 echo "start of the pipeline"
