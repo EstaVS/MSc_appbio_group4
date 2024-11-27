@@ -133,9 +133,6 @@ gunzip ref_genome  #gunzips the reference genome
 ```
 
 
-singularity exec r-deseq2_1.16.1.sif Rscript test_deseq2.R 
-test script - gives us results to say that every part of the script is working. 
-so this command was done to see if deseq2 was running 
 
 
 For git:
