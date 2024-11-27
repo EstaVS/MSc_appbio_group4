@@ -10,53 +10,97 @@ This R Markdown script provides the code needed to reproduce the RNA-sequencing 
 
 # Initial setup of the Work environment and Data:
 
-1. Initially, we logged into the CREATE note and navigated to our scratch place
-
+1. Initially, log into the CREATE note and navigated to scratch place
 
 ```{bash}
 
 srun -p msc_appbio --pty /bin/bash
 
-/scratch_tmp/grp/msc_appbio/group4_tmp/
+/scratch_tmp/grp/msc_appbio/group4_tmp/ #navigating to the scratch place
 ```
-2. Preparing the workspace 
+
+2. Preparing the work space 
+
 Create new directories to store files within project 
 
 ```{bash}
+
 mkdir raw_data_rna
 mkdir processed_data 
 mkdir ref_genome
 
 ```
-# Downloading fastq files with the command line
-The wget command can be used to transfer data from BioStudies (https://www.ebi.ac.uk/biostudies/arrayexpress/studies/E-MTAB-9499/sdrf) and from ENA (https://www.ebi.ac.uk/ena/browser/view/PRJEB41109?show=reads)
+# Downloading RNA-Seq fastq files 
 
-1. Create a nano script containing all the URLs for the fastq files we need 
+1. Create a nano script containing all the URLs for the fastq files 
 
 ```{bash}
-nano fastqLink.txt # for RNA-seq 
-nano bam_urls.txt # for Genome-seq 
+nano links2download.txt 
+```
+
+2. Writing the download script
+
+Bash script (download.sh) was created to automate the download process using the weget command:
+
+```{bash}
+nano download.sh #creates nano script
+
+#In the nano script 
+
+#!/bin/bash
+#SBATCH --job-name=download_job      # Job name
+#SBATCH --output=download_job_%j.log # Output log file (%j will be replaced with job ID)
+#SBATCH --error=download_job_%j.err  # Error log file (%j will be replaced with job ID)
+#SBATCH --ntasks=1                   # Number of tasks (processes)
+#SBATCH --time=00:30:00              # Time limit (hh:mm:ss)
+#SBATCH --mem=1G                     # Memory per node (adjust as needed)
+#SBATCH --partition=standard         # Partition to submit to (adjust to your cluster setup)
+
+# Load wget
+module load wget
+
+# Text file containing URLs
+LINK_FILE="/scratch_tmp/grp/msc_appbio/practice/links2download.txt"
+
+# Check if the file exists
+if [[ ! -f "$LINK_FILE" ]]; then
+echo "Error: $LINK_FILE does not exist."
+exit 1
+fi
+
+# Create a directory to store the downloaded files
+DOWNLOAD_DIR="/scratch_tmp/grp/msc_appbio/practice/downloads"
+mkdir -p "$DOWNLOAD_DIR"
+
+# Read each line of URL from the file and download it
+while IFS= read -r URL; do
+if [[ -n "$URL" ]]; then
+echo "Downloading: $URL"
+wget -P "$DOWNLOAD_DIR" "$URL" || echo "Failed to download: $URL"
+fi
+done < "$LINK_FILE"
+
+echo "Download complete. Files saved in '$DOWNLOAD_DIR'."
 
 ```
 
-2. Copying the data that is used into the nano scripts
+3. Submitting the job 
+
+The download.sh script was then submitted to SLURM 
 
 ```{bash}
-wget -c -i bam_urls.txt # for Genome-seq
-wget -c -i fastqLink.txt # for RNA-seq
+sbatch -p msc_appbio download.sh /bin/bash
 ```
-'-i:' This option ensures that the URLs can be read from the files bam_urls.txt and fastqLink.txt. 
+The output should include a list of fastq.gz files from the RNA-seq data in the downloads directory. 
 
-The ouput should include a list of bam files for the Genome-seq data and a list of fastq.gz files for the RNA-seq data. 
+# Installing the tools needed for our environment using Conda
 
-# Installing the tools needed for pur environment using Conda
-
-1. Create nano script to create a Conda environment with specific versions - for both genome seq and RNA-seq
+1. Create nano script to create a Conda environment with specific versions specified in the paper
 
 ```{bash}
 nano environment.sh
 
-# In the nano script called environment.sh
+# In the nano script 
 
 #!/bin/bash
 
@@ -87,10 +131,18 @@ conda activate bioenv
 
 ```
 
+2. Activating the Conda environment 
+
+Ensures that the Conda environment is added to the shell environment so that the specified tools and versions in bioenv can be used.
+
+```{bash}
+./environment.sh 
+conda activate bioenv
+```
 
 # Quality Control of our files, using fastqc
 
-1. Create a Nano script to fastq the fasta files for RNA-Seq
+1. Create a Nano script to fastqc the fastq.gz files 
 
 ```{bash}
 nano fastqc_RNA
@@ -120,20 +172,30 @@ echo "end of the pipeline"
 
 ```
 
-If the fastqc.html files look good i.e. have good quality reads and do not require adapter trimming, you can proceed with the raw .fastq files without further processing. 
+If the fastqc.html files look good i.e. have good quality reads and do not require adapter trimming, we can proceed with the raw .fastq files without further processing. 
 
-#Alignment with STAR
+# Aligning Trimmed reads to the reference genome of S. cerevisiae CEN.PK113‐7D
 
 1. Obtaining the reference genome
 
 ```{bash}
-wget -c -i https://ftp.ensemblgenomes.ebi.ac.uk/pub/fungi/release-60/fasta/fungi_ascomycota1_collection/saccharomyces_cerevisiae_cen_pk113_7d_gca_000269885/dna/Saccharomyces_cerevisiae_cen_pk113_7d_gca_000269885.ASM26988v1.dna.toplevel.fa.gz #should be directed to the ref_genome directory
+wget -c -i https://ftp.ensemblgenomes.ebi.ac.uk/pub/fungi/release-60/fasta/fungi_ascomycota1_collection/saccharomyces_cerevisiae_cen_pk113_7d_gca_000269885/dna/Saccharomyces_cerevisiae_cen_pk113_7d_gca_000269885.ASM26988v1.dna.toplevel.fa.gz 
 
-gunzip ref_genome  #gunzips the reference genome 
+#should be directed to the ref_genome directory
+
 ```
 
+2. Alignment with STAR 
 
 
+
+
+
+
+
+
+
+Rough notes from 26th Nov:
 
 For git:
 ssh-keygen -t ed25519 -C "eraaziz13@gmail.com"
