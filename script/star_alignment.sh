@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Parameters - customize these paths
-REF_GENOME_DIR="/scratch_tmp/grp/msc_appbio/group4_tmp/ref_genome/Saccharomyces_cerevisiae_cen_pk113_7d_gca_000269885.ASM26988v1.60.gff3.gz"    # Path to STAR indexed genome
+REF_GENOME_DIR="/scratch_tmp/grp/msc_appbio/group4_tmp/ref_genome/GCA_000269885.1_ASM26988v1_genomic.fna"    # Path to STAR indexed genome
 FASTQ="../../raw_data_rna/fastq/ERR4553381.fastq.gz"
 OUTPUT_DIR="../../star_output"                     # Directory for STAR output
 THREADS=4                                    # Number of threads for STAR
