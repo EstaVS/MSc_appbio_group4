@@ -1,36 +1,37 @@
 #!/bin/bash
 
-# Input files
-FASTQC_ZIP="../processed_data/ERR4553381_fastqc.zip"  # Replace with your FastQC .zip file
-STAR_LOG="Log.final.out"         # Replace with your STAR alignment log file
+# Parameters - customize these paths
+REF_GENOME_DIR="path_to_reference_genome"    # Path to STAR indexed genome
+FASTQ_1="reads_1.fastq.gz"                   # Input FASTQ file (R1)
+FASTQ_2="reads_2.fastq.gz"                   # Input FASTQ file (R2) for paired-end; omit for single-end
+OUTPUT_DIR="../star_output"                     # Directory for STAR output
+THREADS=4                                    # Number of threads for STAR
 
-# Function to extract FastQC summary
-check_fastqc() {
-    echo "Checking FastQC results..."
-    unzip -p $FASTQC_ZIP "*/summary.txt" | awk '
-    BEGIN {print "FastQC Summary:"}
-    {print $2, "-", $1}
-    '
-}
+# Create output directory if it doesn't exist
+mkdir -p $OUTPUT_DIR
 
-# Function to analyze STAR alignment log
-check_star_alignment() {
-    echo "Checking STAR alignment results..."
-    awk '
-    /Number of input reads/ {print "Input reads:", $NF}
-    /Uniquely mapped reads %/ {print "Uniquely mapped reads (%):", $NF}
-    /% of reads mapped to multiple loci/ {print "Mapped to multiple loci (%):", $NF}
-    /% of reads mapped to too many loci/ {print "Mapped to too many loci (%):", $NF}
-    /% of reads unmapped: too many mismatches/ {print "Unmapped due to mismatches (%):", $NF}
-    /% of reads unmapped: too short/ {print "Unmapped due to short reads (%):", $NF}
-    ' $STAR_LOG
-}
-
-# Run checks
-if [[ -f $FASTQC_ZIP && -f $STAR_LOG ]]; then
-    check_fastqc
-    echo ""
-    check_star_alignment
+# Run STAR
+echo "Running STAR alignment..."
+if [[ -f "$FASTQ_2" ]]; then
+    STAR \
+        --genomeDir $REF_GENOME_DIR \
+        --readFilesIn $FASTQ_1 $FASTQ_2 \
+        --readFilesCommand zcat \
+        --runThreadN $THREADS \
+        --outFileNamePrefix ${OUTPUT_DIR}/ \
+        --outSAMtype BAM SortedByCoordinate \
+        --outSAMattributes Standard \
+        --quantMode TranscriptomeSAM GeneCounts
 else
-    echo "Error: Missing input files. Ensure $FASTQC_ZIP and $STAR_LOG exist."
+    STAR \
+        --genomeDir $REF_GENOME_DIR \
+        --readFilesIn $FASTQ_1 \
+        --readFilesCommand zcat \
+        --runThreadN $THREADS \
+        --outFileNamePrefix ${OUTPUT_DIR}/ \
+        --outSAMtype BAM SortedByCoordinate \
+        --outSAMattributes Standard \
+        --quantMode TranscriptomeSAM GeneCounts
 fi
+
+echo "Alignment completed. Output saved to ${OUTPUT_DIR}/"
