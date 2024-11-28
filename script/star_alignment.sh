@@ -1,37 +1,28 @@
 #!/bin/bash
 
 # Parameters - customize these paths
-REF_GENOME_DIR="path_to_reference_genome"    # Path to STAR indexed genome
-FASTQ_1="reads_1.fastq.gz"                   # Input FASTQ file (R1)
-FASTQ_2="reads_2.fastq.gz"                   # Input FASTQ file (R2) for paired-end; omit for single-end
-OUTPUT_DIR="../star_output"                     # Directory for STAR output
+REF_GENOME_DIR="/scratch_tmp/grp/msc_appbio/group4_tmp/ref_genome/Saccharomyces_cerevisiae_cen_pk113_7d_gca_000269885.ASM26988v1.60.gff3.gz"    # Path to STAR indexed genome
+FASTQ="../../raw_data_rna/fastq/ERR4553381.fastq.gz"
+OUTPUT_DIR="../../star_output"                     # Directory for STAR output
 THREADS=4                                    # Number of threads for STAR
+
+# load star
+module load star/2.7.10b-gcc-13.2.0
 
 # Create output directory if it doesn't exist
 mkdir -p $OUTPUT_DIR
 
 # Run STAR
 echo "Running STAR alignment..."
-if [[ -f "$FASTQ_2" ]]; then
-    STAR \
+STAR \
         --genomeDir $REF_GENOME_DIR \
-        --readFilesIn $FASTQ_1 $FASTQ_2 \
+        --readFilesIn $FASTQ \
         --readFilesCommand zcat \
         --runThreadN $THREADS \
         --outFileNamePrefix ${OUTPUT_DIR}/ \
         --outSAMtype BAM SortedByCoordinate \
         --outSAMattributes Standard \
-        --quantMode TranscriptomeSAM GeneCounts
-else
-    STAR \
-        --genomeDir $REF_GENOME_DIR \
-        --readFilesIn $FASTQ_1 \
-        --readFilesCommand zcat \
-        --runThreadN $THREADS \
-        --outFileNamePrefix ${OUTPUT_DIR}/ \
-        --outSAMtype BAM SortedByCoordinate \
-        --outSAMattributes Standard \
-        --quantMode TranscriptomeSAM GeneCounts
-fi
+        --quantMode TranscriptomeSAM GeneCounts\
+        --peOverlapNbasesMin 10
 
 echo "Alignment completed. Output saved to ${OUTPUT_DIR}/"
