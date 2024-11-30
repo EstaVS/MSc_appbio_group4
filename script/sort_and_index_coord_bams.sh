@@ -30,9 +30,8 @@ for SEQ_DIR in "$BASE_DIR"/*; do
         fi
 
         # Extract file and output names
-        BAM_FILENAME=$(basename "$BAM_FILE")       # Original BAM file name
-        OUTPUT_BAM="$SEQ_DIR/$BAM_FILENAME"       # Sorted BAM file
-
+        BAM_FILENAME=$(basename "$BAM_FILE" .bam)       # Original BAM file name
+        OUTPUT_BAM="$SEQ_DIR/$BAM_FILENAME"_sorted.bam       # Sorted BAM file
         echo "Processing file: $BAM_FILE"
 
         # Sort BAM file by coordinate (in case further sorting is needed)
