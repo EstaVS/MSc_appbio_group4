@@ -14,19 +14,26 @@
 module load star/2.7.10b-gcc-13.2.0 
 
 # Directory paths
-RAW_DATA_DIR="/scratch_tmp/grp/msc_appbio/group4_tmp/raw_data_rna"
+RAW_DATA_DIR="/scratch_tmp/grp/msc_appbio/group4_tmp/raw_data_rna/fastq"
 OUTPUT_DIR="/scratch_tmp/grp/msc_appbio/group4_tmp/star_output_subset"
 INDEX_PATH="../../index/"  # Path to STAR indexed genome 
 THREADS=4
 
 # Specify the sample IDs to process
-SAMPLES=("ERR4553381" "ERR4553382" "ERR4553383" "ERR4553384")
+SAMPLES=("ERR4553381.fastq.gz" "ERR4553382.fastq.gz" "ERR4553383.fastq.gz" "ERR4553384.fastq.gz")
 
 # Iterate over each sample ID
 for SAMPLE in "${SAMPLES[@]}"; do
-    echo "Processing $SAMPLE..."
+
+    #Full path
+    FULL_PATH="${RAW_DATA_DIR}/${SAMPLE}"
+
+    #Extract the basename without extension
+    SEQ_NUM=$(basename "$SAMPLE" .fastq.gz)
+    echo "Processing $SEQ_NUM..."
+
     STAR  --genomeDir $INDEX_PATH \
-        --readFilesIn $SAMPLE \
+        --readFilesIn $FULL_PATH \
         --readFilesCommand zcat \
          --runThreadN $THREADS \
          --genomeLoad NoSharedMemory \
@@ -49,6 +56,6 @@ for SAMPLE in "${SAMPLES[@]}"; do
         --sjdbScore 1 \
         --limitBAMsortRAM 8000000000
 
-        echo "Alignment completed for $BASENAME. Output saved to ${OUTPUT_DIR}/${SAMPLE}_"
+        echo "Alignment completed for $BASENAME. Output saved to ${OUTPUT_DIR}/${SEQ_NUM}_"
 done
 
