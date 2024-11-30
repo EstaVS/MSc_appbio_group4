@@ -46,7 +46,7 @@ for FASTQ in $FASTQ_DIR/*.fastq.gz;do
    	 --outSAMheaderHD @HD VN:1.4 SO:coordinate \
    	 --outSAMunmapped Within \
    	 --outFilterType BySJout \
-   	 --outFileNamePrefix ${OUTPUT_DIR}/ \
+   	 --outFileNamePrefix ${OUTPUT_DIR}/${BASENAME}_ \
    	 --outSAMattributes NH HI AS NM MD \
    	 --outSAMstrandField intronMotif \
    	 --outSAMtype BAM SortedByCoordinate \
