@@ -13,15 +13,17 @@
 module load samtools/1.17-gcc-13.2.0-python-3.11.6
 
 # Input and output directories
-INPUT_DIR="../../star_output"        # Directory containing BAM files
-OUTPUT_DIR="../../sorted_and_indexed_output"  # Directory to store organized files
+#INPUT_DIR="../../star_output"        # Directory containing BAM files
+INPUT_DIR="../../star_output_subset"  # Directory containing BAM files realigned
+#OUTPUT_DIR="../../sorted_and_indexed_output"  # Directory to store organized files
+OUTPUT_DIR="../../sorted_and_indexed_output_subset"  #Directory to store organized realigned files
 THREADS=4                      # Number of threads for sorting
 
 # Create output directory if it does not exist
 mkdir -p $OUTPUT_DIR
 
 # Process each BAM file
-for BAM_FILE in ${INPUT_DIR}/*Aligned.toTranscriptome.out.bam; do
+for BAM_FILE in ${INPUT_DIR}/*Aligned.sortedByCoord.out.bam; do
     # Extract sequence number (e.g., ERR4553381)
     SEQ_NUM=$(basename $BAM_FILE | cut -d_ -f1)
 
