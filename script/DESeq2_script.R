@@ -88,14 +88,10 @@ dds <- DESeqDataSetFromMatrix(countData = count_matrix,
                               colData = metadata,
                               design = ~ phenotype) 
 
-dds <- dds[rowSums(counts(dds) >= 10) >= 2, ] 
-# Remove genes with low counts
-
 dds <- DESeq(dds)
 # Performs normalization and fits the model
 
-results <- results(dds)
-#results <- results[order(results$padj), ]
+results <- results(dds) # Automatically performs independent filtering
 head(results)
 
 ### fdrtools section ###
@@ -115,7 +111,6 @@ head(results)
 
 significant_genes <- subset(results, qval < 0.1)
 head(significant_genes)
-significant_genes
 
 ###
 
