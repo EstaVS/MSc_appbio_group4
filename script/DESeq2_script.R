@@ -94,7 +94,7 @@ dds <- DESeq(dds)
 results <- results(dds) # Automatically performs independent filtering
 head(results)
 
-### fdrtools section ###
+# fdrtools section - Multiple testing correction
 
 install.packages("fdrtool")
 library(fdrtool)
@@ -117,3 +117,38 @@ head(significant_genes)
 write.csv(as.data.frame(results), file = "differential_expression_results.csv")
 write.csv(as.data.frame(significant_genes), file = "significant_genes_results.csv")
 
+### PCA plot ###
+
+library(ggplot2)
+#install.packages("ggfortify")
+library(ggfortify)
+
+# Using count_matrix for PCA data
+head(count_matrix)
+
+# PCA needs variability across columns to work so constant 0 values need to be removed
+zero_var_cols <- apply(count_matrix, 1, function(x) var(x) == 0)
+print(colnames(count_matrix)[zero_var_cols])
+
+# Filtering constant 0s
+filtered_matrix <- count_matrix[apply(count_matrix, 1, function(x) var(x) > 0), ]
+
+# Applying PCA
+pca <- prcomp(t(filtered_matrix), scale. = TRUE)
+summary(pca)
+
+# Showing string of phenotype metadata and strain metadata - just to check names
+metadata$phenotype
+metadata$strain
+
+# Plotting PCA
+PCAplot <- ggplot(pca, aes(x = PC1, y = PC2, colour = metadata$phenotype, shape = metadata$strain)) +
+         geom_point(size = 3) +
+         labs(title = "Transcriptomics PCA Plot", x = "PC1: 35.5% variance", y = "PC2: 28.6% variance", colour = "Phenotype", shape = "Strain Type") +
+         scale_color_manual(values = c("fumarate_producer" = "indianred2", "malate_producer" = "olivedrab3", "succinate_producer" = "turquoise3", "wild_type" = "orchid2"), labels = c("Fumarate Producer", "Malate Producer", "Succinate Producer", "Wild Type")) +
+         scale_shape_manual(values = c("parental" = 15, "evolved" = 16, "wild_type" = 17), labels = c("Parental", "Evolved", "Wild Type")) +
+         theme_bw() + 
+         theme(legend.position = "bottom")
+
+# Saving plot as image
+ggsave("PCAplot.png", plot = PCAplot, width = 12, height = 8)
