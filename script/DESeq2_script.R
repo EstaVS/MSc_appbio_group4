@@ -7,8 +7,8 @@ setwd("~/Desktop/working_directory/AppBio_project/")
 
 
 library(DESeq2)
-#library(GenomicFeatures)
-#library(txdbmaker)
+library(GenomicFeatures)
+library(txdbmaker)
 library(ggplot2)
 library(Rtsne)
 library(umap)
@@ -43,8 +43,6 @@ head(metadata)
 # write.table(gene_ids, file = "gene_ids.txt", quote = FALSE, row.names = FALSE, col.names = FALSE)
 
 ### End of GenomicFeatures section
- 
-# Instead we have generated the file locally and sftp'd it to the HPC
 
 reference_genes <- read.table("gene_ids.txt", header = FALSE, stringsAsFactors = FALSE)
 reference_genes <- reference_genes$V1  # Extract the gene names
@@ -82,6 +80,9 @@ tail(count_matrix)
 # Check if metadata row names match count matrix column names
 all(rownames(metadata) == colnames(count_matrix))
 
+# Check for NA values
+sum(is.na(count_matrix)) # None
+
 ###
 
 dds <- DESeqDataSetFromMatrix(countData = count_matrix,
@@ -94,27 +95,38 @@ dds <- DESeq(dds)
 results <- results(dds) # Automatically performs independent filtering
 head(results)
 
+# Check for NA values
+sum(is.na(results)) # 131 NA values
+# Where are they?
+sum(is.na(results$pvalue)) # 5 NAs in p-value
+
+# Excluding NA values from analysis
+exNA_results <- results[!is.na(results$pvalue), ]
+head(exNA_results)
+sum(is.na(exNA_results)) # 106 NAs
+sum(is.na(exNA_results$padj)) # Also 106 NAs therefore no more need to be excluded
+
 # fdrtools section - Multiple testing correction
 
-install.packages("fdrtool")
+#install.packages("fdrtool")
 library(fdrtool)
 
-pvalues <- results$pvalue
+pvalues <- exNA_results$pvalue
   
 fdr_results <- fdrtool(pvalues, statistic = "pvalue")
 summary(fdr_results)
 
 # Add q-values to the original results table
-results$qval <- fdr_results$qval
+exNA_results$qval <- fdr_results$qval
 
-head(results)
+head(exNA_results)
 
-significant_genes <- subset(results, qval < 0.1)
+significant_genes <- subset(exNA_results, qval < 0.1)
 head(significant_genes)
 
 ###
 
-write.csv(as.data.frame(results), file = "differential_expression_results.csv")
+write.csv(as.data.frame(exNA_results), file = "differential_expression_results.csv")
 write.csv(as.data.frame(significant_genes), file = "significant_genes_results.csv")
 
 ### PCA plot ###
