@@ -1,19 +1,30 @@
 ---
-title: "Group4_markdown"
-output: html_document
+title: "Assessing the reproducibility of the paper 'Model‐guided development of an evolutionarily stable yeast chassis' "
+output:
+  html_document: default
+  pdf_document: default
 date: "2024-12-11"
 ---
+
+# Appendix
 
 The appendix provides the code used to reproduce the RNA-Seq analyses in the paper provided.
 
 # Initial set up of work environment and data
 
-The first step was to setup the work environment and data on the HPC and where we navigated into our scratch place to start an interactive job.
+The first step was to setup the work environment and data on the HPC, where we navigated into our scratch place and starting an interactive job.
 
 1.  Log into the CREATE node and start an interactive job
 
 ```{bash}
+ssh -i ~/.ssh/ed_create yourmail@hpc.create.kcl.ac.uk
+```
+
+2.  Navigate to the scratch directory and star an interactive job
+
+```{bash}
 /scratch_tmp/grp/msc_appbio/group4_tmp/ #navigating to the scratch directory
+
 srun -p msc_appbio --pty /bin/bash  
 
 #srun - starts an interactive session on a computer node
@@ -21,7 +32,7 @@ srun -p msc_appbio --pty /bin/bash
 # --pty /bin/bash specifies the shell used in the session is Bash
 ```
 
-2.  Create new directories to store files
+3.  Create new directories to store files
 
 ```{bash}
 mkdir raw_data_rna
@@ -32,7 +43,7 @@ mkdir index
 mkdir htseq_counts
 ```
 
-3.  Install and activate the tools needed for environment setup using Conda in the environment.sh nano file
+4.  Install and activate the tools needed for environment setup using Conda in the environment.sh nano file
 
 ```{bash}
 #!/bin/bash
@@ -723,4 +734,3 @@ PCAplot <- ggplot(pca, aes(x = PC1, y = PC2, colour = metadata$phenotype, shape 
 # Saving plot as image
 ggsave("PCAplot.png", plot = PCAplot, width = 12, height = 8)
 ```
-
