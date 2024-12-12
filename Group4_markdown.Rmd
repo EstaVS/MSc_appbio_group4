@@ -17,7 +17,7 @@ The first step was to setup the work environment and data on the HPC, where we n
 1.  Log into the CREATE node and start an interactive job
 
 ```{bash="FALSE"}
-ssh -i ~/.ssh/ed_create yourmail@hpc.create.kcl.ac.uk
+ssh -i ~/.ssh/ed_create youremail@hpc.create.kcl.ac.uk
 ```
 
 2.  Navigate to the scratch directory and star an interactive job
