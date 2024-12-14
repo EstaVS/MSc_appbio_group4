@@ -13,6 +13,7 @@ library(ggplot2)
 library(Rtsne)
 library(umap)
 library(matrixStats)
+library(dplyr)
 
 # List all count data files
 count_file_list <- list.files(path = "count_files", pattern = "*.txt", full.names = TRUE)
@@ -75,152 +76,86 @@ all(rownames(metadata) == colnames(count_matrix))
 # Check for NA values
 sum(is.na(count_matrix)) # None
 
-### Differential Expression according to Phenotype
+# Grouping Phenotype & Strain together to avoid redundancy in Differential Expression
+metadata$group <- factor(paste(metadata$phenotype, metadata$strain, sep = "_"))
+metadata
 
-dds_p <- DESeqDataSetFromMatrix(countData = count_matrix,
+# Temporarily reading group as characters for renaming process
+metadata$group <- as.character(metadata$group)
+
+# Renaming wild_type_wild_type to just wild_type
+metadata <- metadata %>%
+  mutate(group = ifelse(group == "wild_type_wild_type", "wild_type", group))
+
+metadata
+
+# Changing back to factors for Differential Expression
+metadata$group <- as.factor(metadata$group)
+
+### Differential Expression according to Phenotype and Strain
+
+dds <- DESeqDataSetFromMatrix(countData = count_matrix,
                               colData = metadata,
-                              design = ~ phenotype) 
+                              design = ~ group) 
 
-<<<<<<< HEAD
-dds <- DESeq(dds)
-=======
->>>>>>> PCA
 # Performs normalization and fits the model
-dds_p <- DESeq(dds_p)
+dds <- DESeq(dds)
 
-<<<<<<< HEAD
 results <- results(dds) # Automatically performs independent filtering
 head(results)
 
-# fdrtools section - Multiple testing correction
-=======
-results_p <- results(dds_p) # Automatically performs independent filtering
-head(results_p)
-
 # Check for NA values
-sum(is.na(results_p)) # 131 NA values
-# Where are they?
-sum(is.na(results_p$pvalue)) # 5 NAs in p-value
+sum(is.na(results)) # 133 NA values
+sum(is.na(results$pvalue)) # 6 NAs in p-value
 
-# Excluding NA values from analysis
-exNA_results_p <- results_p[!is.na(results_p$pvalue), ]
-head(exNA_results_p)
-
-sum(is.na(exNA_results_p)) # 106 NAs
-
-### Differential Expression according to Strain
-
-dds_s <- DESeqDataSetFromMatrix(countData = count_matrix,
-                              colData = metadata,
-                              design = ~ strain) 
-# Performs normalization and fits the model
-dds_s <- DESeq(dds_s) 
-
-results_s <- results(dds_s)
-head(results_s)
-
-# Check for NA values
-sum(is.na(results_s)) # 25 NA values
-# Where are they?
-sum(is.na(results_s$pvalue)) # 5 NAs in p-value
-
-# Excluding NA values from analysis
-exNA_results_s <- results_s[!is.na(results_s$pvalue), ]
-head(exNA_results_s)
-
-sum(is.na(exNA_results_s)) # 0 NAs ???
+# Excluding NA values from pvalue
+exNA_results <- results[!is.na(results$pvalue), ]
 
 ### fdrtools section - Multiple testing correction
->>>>>>> PCA
 
 library(fdrtool)
 
-# Phenotype differential expression
-
-pvalues_p <- exNA_results_p$pvalue
+pvalues <- exNA_results$pvalue
   
-fdr_results_p <- fdrtool(pvalues_p, statistic = "pvalue")
-summary(fdr_results_p)
+fdr_results <- fdrtool(pvalues, statistic = "pvalue")
+summary(fdr_results)
 
 # Add q-values to the original results table
-exNA_results_p$qval <- fdr_results_p$qval
+exNA_results$qval <- fdr_results$qval
 
-head(exNA_results_p)
+head(exNA_results)
 
-<<<<<<< HEAD
-significant_genes <- subset(results, qval < 0.1)
+significant_genes <- subset(exNA_results, qval < 0.1)
 head(significant_genes)
-=======
-significant_genes_p <- subset(exNA_results_p, qval < 0.1)
-head(significant_genes_p)
->>>>>>> PCA
 
-summary(significant_genes_p)
+summary(significant_genes)
 
 # Writing to a csv file
-write.csv(as.data.frame(significant_genes_p), file = "significant_genes_phenotype.csv")
-
-<<<<<<< HEAD
-### PCA plot ###
-
-library(ggplot2)
-#install.packages("ggfortify")
-=======
-# Strain differential expression
-
-pvalues_s <- exNA_results_s$pvalue
-
-fdr_results_s <- fdrtool(pvalues_s, statistic = "pvalue")
-summary(fdr_results_s)
-
-# Add q-values to the original results table
-exNA_results_s$qval <- fdr_results_s$qval
-
-head(exNA_results_s)
-
-significant_genes_s <- subset(exNA_results_s, qval < 0.1)
-head(significant_genes_s)
-
-summary(significant_genes_s)
-
-# Writing to a csv file
-write.csv(as.data.frame(significant_genes_s), file = "significant_genes_strain.csv")
+write.csv(as.data.frame(significant_genes), file = "significant_genes.csv")
 
 ### PCA plot ###
 
 library(ggplot2)
->>>>>>> PCA
 library(ggfortify)
 
-# Using count_matrix for PCA data
-head(count_matrix)
+### Constructing a Differential Expression matrix for PCA
 
-# PCA needs variability across columns to work so constant 0 values need to be removed
-zero_var_cols <- apply(count_matrix, 1, function(x) var(x) == 0)
-print(colnames(count_matrix)[zero_var_cols])
-
-# Filtering constant 0s
-filtered_matrix <- count_matrix[apply(count_matrix, 1, function(x) var(x) > 0), ]
+# Creating normalized count matrix for PCA
+norm_counts <- counts(dds, normalized = TRUE)
+summary(norm_counts)
 
 # Applying PCA
-pca <- prcomp(t(filtered_matrix), scale. = TRUE)
+pca <- prcomp(t(norm_counts), scale. = TRUE)
 summary(pca)
 
-<<<<<<< HEAD
-# Showing string of phenotype metadata and strain metadata - just to check names
-metadata$phenotype
-metadata$strain
+# Reading variables as factors due to issues in PCA legend
+metadata$phenotype <- factor(metadata$phenotype, levels = c("fumarate_producer", "malate_producer", "succinate_producer", "wild_type"))
+metadata$strain <- factor(metadata$strain, levels = c("parental", "evolved", "wild_type"))
 
 # Plotting PCA
 PCAplot <- ggplot(pca, aes(x = PC1, y = PC2, colour = metadata$phenotype, shape = metadata$strain)) +
          geom_point(size = 3) +
-         labs(title = "Transcriptomics PCA Plot", x = "PC1: 35.5% variance", y = "PC2: 28.6% variance", colour = "Phenotype", shape = "Strain Type") +
-=======
-# Plotting PCA
-PCAplot <- ggplot(pca, aes(x = PC1, y = PC2, colour = metadata$phenotype, shape = metadata$strain)) +
-         geom_point(size = 3) +
-         labs(title = "Transcriptomics PCA Plot", x = "PC1: 46.07% variance", y = "PC2: 13.15% variance", colour = "Phenotype", shape = "Strain Type") +
->>>>>>> PCA
+         labs(title = "Transcriptomics PCA Plot", x = "PC1: 22.74% variance", y = "PC2: 15.77% variance", colour = "Phenotype", shape = "Strain Type") +
          scale_color_manual(values = c("fumarate_producer" = "indianred2", "malate_producer" = "olivedrab3", "succinate_producer" = "turquoise3", "wild_type" = "orchid2"), labels = c("Fumarate Producer", "Malate Producer", "Succinate Producer", "Wild Type")) +
          scale_shape_manual(values = c("parental" = 15, "evolved" = 16, "wild_type" = 17), labels = c("Parental", "Evolved", "Wild Type")) +
          theme_bw() + 
@@ -228,8 +163,6 @@ PCAplot <- ggplot(pca, aes(x = PC1, y = PC2, colour = metadata$phenotype, shape 
 
 # Saving plot as image
 ggsave("PCAplot.png", plot = PCAplot, width = 12, height = 8)
-<<<<<<< HEAD
-=======
 
 ### This section is not included in the Rmarkdown file
 
@@ -251,6 +184,5 @@ ggplot(loadings_df, aes(x = PC1, y = PC2, label = Variable)) +
   labs(title = "Loading Plot", x = "PC1", y = "PC2") +
   theme_minimal() +
   geom_circle(aes(x0 = 0, y0 = 0, r = 1), linetype = "dashed", inherit.aes = FALSE)
-# Plot shows minimal contribution by variables to PC1 & PC2
+# Plot shows minimal contribution by any specific gene to PC1 & PC2
 # This is typical for transcriptomic analysis as the data shows high-dimensionality
->>>>>>> PCA
