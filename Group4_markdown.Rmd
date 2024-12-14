@@ -1,6 +1,8 @@
 ---
-title: "Assessing the reproducibility of the paper 'Model‐guided development of an evolutionarily stable yeast chassis' "
+title: 'Assessing the reproducibility of the paper ''Model‐guided development of an
+  evolutionarily stable yeast chassis'' '
 output:
+  word_document: default
   html_document: default
   pdf_document: default
 date: "2024-12-11"
@@ -23,7 +25,7 @@ ssh -i ~/.ssh/ed_create youremail@hpc.create.kcl.ac.uk
 2.  Navigate to the scratch directory and star an interactive job
 
 ``` {bash="FALSE"}
-/scratch_tmp/grp/msc_appbio/group4_tmp/ #navigating to the scratch directory
+cd /scratch_tmp/grp/msc_appbio/group4_tmp/ #navigating to the scratch directory
 
 srun -p msc_appbio --pty /bin/bash  
 
@@ -115,7 +117,6 @@ fi
 done < "$LINK_FILE"
 
 echo "Download complete. Files saved in '$DOWNLOAD_DIR'."
-
 ```
 
 3.  Obtain the reference genome
@@ -258,10 +259,9 @@ for FASTQ in $FASTQ_DIR/*.fastq.gz;do
 
         echo "Alignment completed for $BASENAME. Output saved to ${OUTPUT_DIR}/${BASENAME}_"
 done
-
 ```
 
-The output should be .sortedByCoord.out.bam files for the 20 fastq files
+The output should be _Aligned.out.bam files for the 20 fastq files
 
 3.  Sort and Index the BAM files using samtools
 
@@ -360,7 +360,7 @@ for bamfile in "$bamDir"/ERR4553*/*sortedByCoord.out_sorted.bam; do
 # -s yes specifies that the RNA-Seq data is strand specific
 
      # Check if HTSeq-Count ran successfully
-        if [[ $? -eq 0 ]]; then # makes sure that htseq-count ran successfully and whether any errors were found
+        if [[ $? -eq 0 ]]; then 
             echo "Counts for $sampleName directed to  $outputCounts"
         else
             echo "Error: HTSeq-Count failed for $sampleName. Check input files."
@@ -379,6 +379,7 @@ Downstream analysis of gene counting was done using the DeSeq2 tool in R. DeSeq2
 
 ``` {r="false"}
 setwd("~/Desktop/MSc_appbio_group4/")
+
 #Install the packages needed
 install.packages("BiocManager")
 BiocManager::install("DESeq2") 
@@ -393,7 +394,7 @@ library(umap)
 library(matrixStats)
 ```
 
-2.  Reading and loading the count files and metadata
+2.  Read and load the count files and metadata
 
 ``` {r="false"}
 #List and filter the files collected from HTSeq count data, returning only .txt files 
@@ -409,7 +410,7 @@ metadata <- read.csv(file ="phenotype_metadata.csv", header = TRUE, row.names = 
 head(metadata)
 ```
 
-3.  Extracting and Saving gene-level annotations from GTF file in a GTF format
+3.  Extract and Save gene-level annotations from GTF file in a GTF format
 
 ``` {r="false"}
 # Load the GTF file and convert it into a TxDb
@@ -437,7 +438,7 @@ reference_genes <- read.table("gene_ids.txt", header = FALSE, stringsAsFactors =
 reference_genes <- reference_genes$V1 
 ```
 
-4.  Aligning and Processing Gene count data to the reference genome
+4.  Align and Process Gene count data to the reference genome
 
 ``` {r="false"}
 # Function to Align Counts to Reference Genes
@@ -518,7 +519,7 @@ sum(is.na(exNA_results$padj))
 
 # Adjusting the P-values with the FDR tool for Multiple Testing Correction
 
-For differential gene expression analysis in RNA-Seq, each gene will be tested for statistical significance. Loads of statistical tests are performed and these multiple tests should be corrected for. If not, the number of genes being highlighted as differentially expressed will be inaccurate, leading to incorrect conlusions and invalid downstream analysis.
+For differential gene expression analysis in RNA-Seq, each gene will be tested for statistical significance. Loads of statistical tests are performed and these multiple tests should be corrected for. If not, the number of genes being highlighted as differentially expressed will be inaccurate, leading to incorrect conclusions and invalid downstream analysis.
 
 1.  Install and Load the necessary packages
 
@@ -549,7 +550,7 @@ head(significant_genes)
 significant_genes
 ```
 
-3.  Saving the data in a portable format like a csv file
+3.  Saving the data in a portable csv format 
 
 ``` {r="false"}
 #Saving differential expression analysis data to a csv file
@@ -579,8 +580,6 @@ library(pheatmap)
 2.  Import DESeq dataset and save it as an RDS
 
 ``` {r="false"}
-#Convert significant genes csv into an RDS object
-
 # Read the significant genes csv from DeSeq2 analysis into R
 results_df <- read.csv("significant_genes_results.csv", row.names = 1)
 
@@ -594,7 +593,7 @@ dds <- readRDS("dds_object.rds")
 dds
 ```
 
-3.  Transforming the data set
+3.  Transform the data set
 
 Transforming the data set into a regularized log transformation makes RNA-Seq data suitable for visualization and analysis such as in heatmaps
 
@@ -620,7 +619,7 @@ phenotype = col_data$phenotype
 strain = col_data$strain 
 ```
 
-5.  Extract Transformed Data for the Heatmap
+5.  Extract Transformed Data for the Heatmap for normalisation
 
 ``` {r="false"}
 #Extract numerical matrix of log-transformed gene expression data 
@@ -630,7 +629,7 @@ rld_matrix = assay(rld)
 head(rld_matrix,3) 
 ```
 
-6.  Selecting the 50 most highly expressed genes from the rld_matrix dataset
+6.  Select the 50 most highly expressed genes from the rld_matrix dataset
 
 ``` {r="false"}
 # Identify Top 50 highly expressed genes 
@@ -643,13 +642,15 @@ heatmap_data = rld_matrix[top_genes,] #ensures that the heatmap data has the top
 head(heatmap_data,3) 
 ```
 
-7.  Creating the heatmap
+7.  Create the heatmap
 
 ``` {r="false"}
 # Create a matrix of sample annotations (phenotype and strain)
 sample_annotation <- data.frame(Phenotype = phenotype, Strain = strain) 
 
-rownames(sample_annotation) <- colnames(rld_matrix) #sets rownames to align with column names of rld_matrix
+# Set rownames to align with column names of rld_matrix
+rownames(sample_annotation) <- colnames(rld_matrix) 
+
 
 # Creating the heatmap
 pheatmap(rld_matrix[top_genes, ],
@@ -664,9 +665,9 @@ pheatmap(rld_matrix[top_genes, ],
 
 A Heatmap showing the top 50 highly most expressed genes will be shown, showing the differentially expressed genes across the sample types that have different phenotypes and evolutionary patterns.
 
-## Create a PCA (Principlal Component Analysis) plot
+## Create a PCA (Principal Component Analysis) plot
 
-This is vital for RNA-Seq analysis, showing how the samples cluster depending on their gene expression patterns. So those with similar gene expression patterns will cluster together.
+This is vital for RNA-Seq analysis, showing how the samples cluster depending on their gene expression patterns.Those with similar gene expression patterns will cluster together.
 
 1.  Install/load necessary packages
 
