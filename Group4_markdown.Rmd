@@ -706,7 +706,7 @@ metadata$strain
 # Create a PCA plot, phenotype is colored, strain is shaped
 PCAplot <- ggplot(pca, aes(x = PC1, y = PC2, colour = metadata$phenotype, shape = metadata$strain)) + #PC1 and PC2 are set as the axes with color based on phenotype and shape based on strain
          geom_point(size = 3)+ #point size is set for 3 
-         labs(title = "Transcriptomics PCA Plot", x = "PC1: 35.5% variance", y = "PC2: 28.6% variance", colour = "Phenotype", shape = "Strain Type") + #add titles and axes labels, explaining %variance in PC1 and 2
+         labs(title = "Transcriptomics PCA Plot", x = "PC1: 22.74% variance", y = "PC2: 15.77% variance", colour = "Phenotype", shape = "Strain Type") + #add titles and axes labels, explaining %variance in PC1 and 2
          scale_color_manual(values = c("fumarate_producer" = "indianred2", "malate_producer" = "olivedrab3", "succinate_producer" = "turquoise3", "wild_type" = "orchid2"), labels = c("Fumarate Producer", "Malate Producer", "Succinate Producer", "Wild Type")) + #set the colors for the different phenotypes and apply their labels
          scale_shape_manual(values = c("parental" = 15, "evolved" = 16, "wild_type" = 17), labels = c("Parental", "Evolved", "Wild Type")) + #set shapes to the different strains and apply their labels
          theme_bw() + #set a white background for the figure
