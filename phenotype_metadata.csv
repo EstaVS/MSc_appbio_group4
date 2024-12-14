@@ -1,4 +1,4 @@
-﻿ENA_sample,phenotype,strain
+ENA_sample,phenotype,strain
 ERR4553381,fumarate_producer,parental
 ERR4553382,fumarate_producer,parental
 ERR4553383,fumarate_producer,parental
@@ -16,6 +16,6 @@ ERR4553394,malate_producer,evolved
 ERR4553395,succinate_producer,evolved
 ERR4553396,succinate_producer,evolved
 ERR4553397,succinate_producer,evolved
-ERR4553398,wild_type,NA
-ERR4553399,wild_type,NA
-ERR4553400,wild_type,NA
+ERR4553398,wild_type,wild_type
+ERR4553399,wild_type,wild_type
+ERR4553400,wild_type,wild_type
