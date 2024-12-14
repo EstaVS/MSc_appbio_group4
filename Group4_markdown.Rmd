@@ -1,0 +1,717 @@
+---
+title: 'Assessing the reproducibility of the paper ''Model‐guided development of an
+  evolutionarily stable yeast chassis'' '
+output:
+  word_document: default
+  html_document: default
+  pdf_document: default
+date: "2024-12-11"
+---
+
+# Appendix
+
+The appendix provides the code used to reproduce the RNA-Seq analyses in the paper provided.
+
+# Initial set up of work environment and data
+
+The first step was to setup the work environment and data on the HPC, where we navigated into our scratch place and starting an interactive job.
+
+1.  Log into the CREATE node and start an interactive job
+
+``` {bash="FALSE"}
+ssh -i ~/.ssh/ed_create youremail@hpc.create.kcl.ac.uk
+```
+
+2.  Navigate to the scratch directory and star an interactive job
+
+``` {bash="FALSE"}
+cd /scratch_tmp/grp/msc_appbio/group4_tmp/ #navigating to the scratch directory
+
+srun -p msc_appbio --pty /bin/bash  
+
+#srun - starts an interactive session on a computer node
+# -p specifies the partition used which is the msc_appbio 
+# --pty /bin/bash specifies the shell used in the session is Bash
+```
+
+3.  Create new directories to store files
+
+``` {bash="FALSE"}
+mkdir raw_data_rna
+mkdir processed_data 
+mkdir ref_genome
+mkdir sorted_and_indexed_output
+mkdir index
+mkdir htseq_counts
+```
+
+4.  Install and activate the tools needed for environment setup using Conda in the environment.sh nano file
+
+``` {bash="FALSE"}
+#!/bin/bash
+
+echo "start of the pipeline"
+
+# Add conda channels
+conda config --add channels bioconda 
+conda config --add channels conda-forge
+
+# Create a new conda environment with specific versions specified in the paper
+conda create -n bioenv fastqc=0.11.5 cutadapt=2.3 faqcs=2.08 star= 2.5.2a fdrtool= 1.2.15 htseq= 0.9.1 -y
+
+# Print a message about how to activate the environment
+echo "To activate your environment, run: conda activate bioenv" 
+
+echo "end of the pipeline"
+
+#Activate the Conda environment with specified tool versions
+conda activate bioenv 
+```
+
+# Downloading the fastq files and reference genome
+
+1.  Create a nano script containing the fastq URLs downloaded from <https://www.ebi.ac.uk/biostudies/arrayexpress/studies/E-MTAB-9499>
+
+``` {bash="FALSE"}
+nano links2download.txt  #contains all the fastq URLs
+```
+
+2.  Write the download.sh script using wget command
+
+Bash script (download.sh) was created to automate the download process using the wget command:
+
+``` {bash="FALSE"}
+nano download.sh #creates nano script
+
+#!/bin/bash
+#SBATCH --job-name=download_job      # Job name
+#SBATCH --output=download_job_%j.log # Output log file (%j will be replaced with job ID)
+#SBATCH --error=download_job_%j.err  # Error log file (%j will be replaced with job ID)
+#SBATCH --ntasks=1                   # Number of tasks (processes)
+#SBATCH --time=00:30:00              # Time limit (hh:mm:ss)
+#SBATCH --mem=1G                     # Memory per node (adjust as needed)
+#SBATCH --partition=standard         # Partition to submit to (adjust to your cluster setup)
+
+# Load wget
+module load wget
+
+# Text file containing URLs
+LINK_FILE="/scratch_tmp/grp/msc_appbio/practice/links2download.txt"
+
+# Check if the file exists
+if [[ ! -f "$LINK_FILE" ]]; then
+echo "Error: $LINK_FILE does not exist."
+exit 1
+fi
+
+# Create a directory to store the downloaded files
+DOWNLOAD_DIR="/scratch_tmp/grp/msc_appbio/practice/downloads"
+mkdir -p "$DOWNLOAD_DIR"
+
+# Read each line of URL from the file and download it
+while IFS= read -r URL; do
+if [[ -n "$URL" ]]; then
+echo "Downloading: $URL"
+wget -P "$DOWNLOAD_DIR" "$URL" || echo "Failed to download: $URL"
+fi
+done < "$LINK_FILE"
+
+echo "Download complete. Files saved in '$DOWNLOAD_DIR'."
+```
+
+3.  Obtain the reference genome
+
+The NIH webpage was visited and the name of the reference genome (GCA_000269885) was pasted in the search bar
+
+The data set was downloaded onto our local terminals and then pushed data into CREATE using sftp:
+
+``` {bash="FALSE"}
+sftp -i~/.ssh/create_msc k24088153@hpc.create.kcl.ac.uk #logs into the secure file transfer protocol
+sftp> put GCA_000269885.1 #file with the reference genome from our local is transported to our ref_genome directory on the HPC.
+
+#Within GCA_000269885.1
+
+# GCA_000269885.1_ASM26988v1_genomic.fna 
+# genomic.gtf 
+```
+
+The output is a list of fastq.gz files from the RNA-seq data and a gtf and .fna file for the reference genome.
+
+# Quality Control of our files, using fastqc
+
+1.  Create a Nano script to fastqc the fastq.gz files
+
+``` {bash="FALSE"}
+nano fastqc_RNA #creates nano script
+
+In the nano script:
+#!/bin/bash
+
+echo "start of the pipeline"
+
+#Load Fastqc - if not loaded previously 
+module load fastqc 
+
+# Define base and results directories
+baseDirectory="/scratch_tmp/grp/msc_appbio/group4_tmp/raw_data_rna/fastq"
+resultsDirectory="/scratch/grp/msc_appbio/group4_tmp/processed_data/"
+
+# Create the results directory 
+mkdir -p "$resultsDirectory"
+
+# Run Fastqc on all .fastq.gz files in baseDirectory
+fastqc -o "$resultsDirectory" -t 4 "$baseDirectory"/*.fastq.gz #(-o represents the output directory -t 4 specifies that 4 threads were used)
+
+echo "end of the pipeline"
+```
+
+The output should be a series of fastqc.html files which can be downloaded and observed for adapter content and for the quality of the fastq files.
+
+# Aligning the fastq reads to the reference genome of S. cerevisiae CEN.PK113‐7D using STAR
+
+The next step was to align the reads to the reference genome using STAR. In order to use STAR, the reference needed to be indexed.
+
+1.  Creating an alignment index
+
+``` {bash="FALSE"}
+nano star_index.sh #creates a nano script
+
+In the nano script:
+#!/bin/bash 
+
+#Loading STAR if not already loaded
+module load star 
+
+#Making the index
+STAR 
+--runThreadN 8            #number of threads specified for fast processing
+--runMode genomeGenerate  #mode is set to genomeGenerate, which creates a genome index for alignment
+--genomeDir /scratch_tmp/grp/msc_appbio/group4_tmp/index #provides directory path where the genome index will be stored
+--genomeFastaFiles /scratch_tmp/grp/msc_appbio/group4_tmp/ref_genome/GCA_000269885.1_ASM26988v1_genomic.fna  #defining path where the fasta files are
+--sjdbGTFfile /scratch_tmp/grp/msc_appbio/group4_tmp/ref_genome/genomic.gtf #provides the path where the GTF file is
+```
+
+The output of indexing provides STAR the ability to perfom alignment and importantly how the reads from RNA-Seq align to the reference genome.
+
+2.  Alignment of RNA-Seq raw files to the reference genome using STAR
+
+``` {bash="FALSE"}
+nano star_alignment.sh #creates nano script
+
+In the nano script:
+
+#!/bin/bash
+
+#SBATCH --job-name=star_alignment     # Job name
+#SBATCH --output=star_alignment.log   # Output log file
+#SBATCH --error=star_alignment.err    # Error log file
+#SBATCH --time=06:00:00               # Time limit (hh:mm:ss)
+#SBATCH --cpus-per-task=4             # Number of CPU cores
+#SBATCH --mem=32G                     # Memory pool for the job
+#SBATCH --partition=msc_appbio          # Partition to submit to (adjust based on your cluster)
+#SBATCH --mail-type=END,FAIL          # Notifications for job done & fail
+#SBATCH --mail-user=k24023654@kcl.ac.uk  # Email for notification
+
+# Parameters - customize these paths
+INDEX_PATH="../../index/"                   # Path to STAR indexed genome
+REF_GENOME_DIR="/scratch_tmp/grp/msc_appbio/group4_tmp/ref_genome/GCA_000269885.1_ASM26988v1_genomic.fna"    # Path to reference genome
+FASTQ_DIR="../../raw_data_rna/fastq/"
+OUTPUT_DIR="../../star_output"              # Directory for STAR output
+THREADS=4                                   # Number of threads for STAR
+
+# load star
+module load star/2.7.10b-gcc-13.2.0
+
+
+# Create output directory if it doesn't exist
+mkdir -p $OUTPUT_DIR
+
+# Loop through each fastq.gz file in the raw_data_rna/fastq directory
+for FASTQ in $FASTQ_DIR/*.fastq.gz;do
+        BASENAME=$(basename $FASTQ .fastq.gz)
+
+        # Run STAR
+        echo "Running STAR alignment for $BASENAME..."
+
+        STAR --genomeDir $INDEX_PATH \
+        --readFilesIn $FASTQ \
+        --readFilesCommand zcat \
+         --runThreadN $THREADS \
+         --genomeLoad NoSharedMemory \
+         --outFilterMultimapNmax 20 \
+         --alignSJoverhangMin 8 \
+         --alignSJDBoverhangMin 1 \
+         --outFilterMismatchNmax 999 \
+         --outFilterMismatchNoverReadLmax 0.04 \
+         --alignIntronMin 20 \
+         --alignIntronMax 1000000 \
+         --alignMatesGapMax 1000000 \
+         --outSAMheaderHD @HD VN:1.4 SO:coordinate \
+         --outSAMunmapped Within \
+         --outFilterType BySJout \
+         --outFileNamePrefix ${OUTPUT_DIR}/${BASENAME}_ \
+         --outSAMattributes NH HI AS NM MD \
+         --outSAMstrandField intronMotif \
+         --outSAMtype BAM SortedByCoordinate \
+        --quantMode TranscriptomeSAM GeneCounts \
+        --sjdbScore 1 \
+        --limitBAMsortRAM 8000000000
+
+        echo "Alignment completed for $BASENAME. Output saved to ${OUTPUT_DIR}/${BASENAME}_"
+done
+```
+
+The output should be _Aligned.out.bam files for the 20 fastq files
+
+3.  Sort and Index the BAM files using samtools
+
+This improves the efficiency of the RNA-Seq data for downstream analysis
+
+``` {bash="FALSE"}
+nano sort_and_index_coord_bams.sh #creates a nano script
+
+In the nano script:
+
+#!/bin/bash
+#SBATCH --output=sort_index_%j.log # Standard output log file
+#SBATCH --error=sort_index_%j.err  # Standard error log file
+#SBATCH --time=02:00:00            # Time limit (hh:mm:ss)
+#SBATCH --mem=8G                   # Memory limit
+#SBATCH --ntasks=1                 # Number of tasks
+#SBATCH --cpus-per-task=1          # Number of CPU cores
+#SBATCH --partition=msc_appbio     # Partition to use
+
+# Load samtools module
+module load samtools/1.17-gcc-13.2.0-python-3.11.6
+
+# Base directory containing the subfolders with BAM files
+BASE_DIR="/scratch_tmp/grp/msc_appbio/group4_tmp/sorted_and_indexed_output"
+
+echo "Starting sorting and indexing of sortedByCoord BAM files..."
+
+# Loop through each folder and process the BAM file
+for SEQ_DIR in "$BASE_DIR"/*; do
+    # Check if SEQ_DIR is a directory
+    if [ -d "$SEQ_DIR" ]; then
+        # Find the BAM file in the directory
+        BAM_FILE=$(find "$SEQ_DIR" -maxdepth 1 -type f -name "*_Aligned.sortedByCoord.out.bam")
+        
+        # Skip if no BAM file is found
+        if [ -z "$BAM_FILE" ]; then
+            echo "No BAM file found in $SEQ_DIR, skipping..."
+            continue
+        fi
+
+        # Extract file and output names
+        BAM_FILENAME=$(basename "$BAM_FILE" .bam)       # Original BAM file name
+        OUTPUT_BAM="$SEQ_DIR/$BAM_FILENAME"_sorted.bam       # Sorted BAM file
+        echo "Processing file: $BAM_FILE"
+
+        # Sort BAM file by coordinate (in case further sorting is needed)
+        samtools sort -o "$OUTPUT_BAM" "$BAM_FILE"
+
+        # Index the sorted BAM file
+        samtools index "$OUTPUT_BAM"
+
+        echo "Sorted and indexed: $OUTPUT_BAM"
+    fi
+done
+
+echo "All BAM files have been processed."
+```
+
+The output should be .sortedByCoord.out.sorted.bam files and should highlight the mapped reads
+
+# Feature counts with HTSeq
+
+Then the mapped reads were used to create gene-level read count tables using HTSeq, essential for downstream analyses.
+
+``` {bash="FALSE"}
+nano counts.sh # creates a nano script 
+
+In the nano script:
+
+#!bin/bash
+
+#Define paths
+baseDir="/scratch_tmp/grp/msc_appbio/group4_tmp"
+bamDir="${baseDir}/sorted_and_indexed_output"
+gtf_file="${baseDir}/ref_genome/genomic.gtf"
+outputDir="${baseDir}/htseq_counts"
+
+#Create output directory if it doesn't exist 
+mkdir -p "$outputDir"
+
+#Loop through all BAM files in the subdirectories matching ERR4553*
+for bamfile in "$bamDir"/ERR4553*/*sortedByCoord.out_sorted.bam; do
+
+    #Extract sample name from the BAM file.
+    sampleName=$(basename "$bamfile" .bam)
+
+    #Define the output counts file 
+    outputCounts="${outputDir}/counts_${sampleName}.txt"
+
+    #Run HTSeq-Count for the BAM files, annotating it with GTF file
+    echo "Running HTSeq-counts for sample" "$sampleName"
+    htseq-count -f bam -r pos -s yes "$bamfile" "$gtf_file" > "$outputCount"
+
+# -f bam specifies that the input is a bam file
+# -r pos specifies that reads are sorted by position
+# -s yes specifies that the RNA-Seq data is strand specific
+
+     # Check if HTSeq-Count ran successfully
+        if [[ $? -eq 0 ]]; then 
+            echo "Counts for $sampleName directed to  $outputCounts"
+        else
+            echo "Error: HTSeq-Count failed for $sampleName. Check input files."
+        fi
+done
+
+
+echo "Gene counting with HTSeq is completed for all samples. Results are in $outputDir."
+```
+
+# Differential analysis using DeSeq2 (In R)
+
+Downstream analysis of gene counting was done using the DeSeq2 tool in R. DeSeq2 tells us whether the genes are differentially expressed between the different yeast strains and their evolution patterns.
+
+1.  Set the required working directory and install/load packages that are needed
+
+``` {r="false"}
+setwd("~/Desktop/MSc_appbio_group4/")
+
+#Install the packages needed
+install.packages("BiocManager")
+BiocManager::install("DESeq2") 
+BiocManager::install(c("GenomicFeatures", "txdbmaker")) 
+
+library(DESeq2)
+library(GenomicFeatures)
+library(txdbmaker)
+library(ggplot2)
+library(Rtsne)
+library(umap)
+library(matrixStats)
+```
+
+2.  Read and load the count files and metadata
+
+``` {r="false"}
+#List and filter the files collected from HTSeq count data, returning only .txt files 
+count_file_list <- list.files(path = "htseq_counts/", pattern = "*.txt", full.names = TRUE)
+
+#View the count.txt files
+count_file_list
+
+# List the metadata 
+metadata <- read.csv(file ="phenotype_metadata.csv", header = TRUE, row.names = 1)
+
+#View the metadata
+head(metadata)
+```
+
+3.  Extract and Save gene-level annotations from GTF file in a GTF format
+
+``` {r="false"}
+# Load the GTF file and convert it into a TxDb
+txdb <- makeTxDbFromGFF(file = "genomic.gtf", format = "gtf")
+txdb
+
+# Extract gene data for gene reference list
+genes <- genes(txdb)
+genes_df <- as.data.frame(genes)
+
+# Extract only the gene IDs (rownames from genes_df)
+gene_ids <- rownames(genes_df)
+
+# View the first few gene IDs
+head(gene_ids)
+
+
+# Save the gene list to a file
+write.table(gene_ids, file = "gene_ids.txt", quote = FALSE, row.names = FALSE, col.names = FALSE)
+
+#Read the gene_ids.txt into a new data frame 
+reference_genes <- read.table("gene_ids.txt", header = FALSE, stringsAsFactors = FALSE)
+
+#Extracts first column from reference_genes, containing gene_ids
+reference_genes <- reference_genes$V1 
+```
+
+4.  Align and Process Gene count data to the reference genome
+
+``` {r="false"}
+# Function to Align Counts to Reference Genes
+read_and_align <- function(file, reference_genes) {
+ 
+   # Read the HTSeq file
+  df <- read.table(file, header = FALSE, row.names = 1, col.names = c("gene_id", "count"))
+  
+  # Remove summary rows (e.g., __no_feature, __ambiguous)
+  df <- df[!grepl("^__", rownames(df)), , drop = FALSE]
+
+# Create a full matrix aligned to the reference genes
+  aligned_df <- data.frame(count = rep(0, length(reference_genes)), row.names = reference_genes)
+  
+  # Fill in the counts for existing genes
+  aligned_df[rownames(df), "count"] <- df$count
+  
+  # Return the aligned counts
+  colnames(aligned_df) <- gsub(".txt$", "", basename(file)) #Use the sample name as column name
+  return(aligned_df)
+}
+
+# Read and align all files to the reference gene list
+aligned_counts <- lapply(count_file_list, function(file) read_and_align(file, reference_genes))
+
+# Combine all aligned data frames into a single matrix
+count_matrix <- do.call(cbind, aligned_counts)
+
+# Check the resulting matrix
+head(count_matrix)
+tail(count_matrix)
+
+# Check if metadata row names match count matrix column names 
+all(rownames(metadata) == colnames(count_matrix))
+
+# Check for NA values
+sum(is.na(count_matrix))
+```
+
+6.  Creating a DeSeq2 dataset and filtering low count genes
+
+The DeSeq2 data set will manage and store the RNA-Seq data and metadata.
+
+``` {r="false"}
+# Creating the deseq2 data set using count matrix and phenotype metadata
+dds <- DESeqDataSetFromMatrix(countData = count_matrix,
+                              colData = metadata,
+                              design = ~ phenotype)
+
+#Filtering low-count genes to those with at least 10 reads in at least 2 samples 
+dds <- dds[rowSums(counts(dds) >= 10) >= 2, ]
+```
+
+7.  Normalize the data and handle missing values from differential gene analysis
+
+``` {r="false"}
+#Normalising and fitting the model
+dds <- DESeq(dds) #contains normalised counts 
+
+#Extracting and inspecting results
+results <- results(dds)
+head(results)
+
+# Check for NA values in the results dataframe
+sum(is.na(results)) 
+
+# Identify where the missing values are from
+sum(is.na(results$pvalue)) # looks at NAs in p-value (5 NAs)
+
+# Excluding missing values (NA) from analysis
+exNA_results <- results[!is.na(results$pvalue), ]
+head(exNA_results)
+
+#Confirming whether NA values have been excluded
+sum(is.na(exNA_results))
+sum(is.na(exNA_results$padj))
+```
+
+# Adjusting the P-values with the FDR tool for Multiple Testing Correction
+
+For differential gene expression analysis in RNA-Seq, each gene will be tested for statistical significance. Loads of statistical tests are performed and these multiple tests should be corrected for. If not, the number of genes being highlighted as differentially expressed will be inaccurate, leading to incorrect conclusions and invalid downstream analysis.
+
+1.  Install and Load the necessary packages
+
+``` {r="false"}
+install.packages("fdrtool")
+library(fdrtool)
+```
+
+2.  Multiple Testing Correction with FDR
+
+``` {r="false"}
+#Extract p-values from 'results' and assign to pvalues
+pvalues <- results$pvalue
+
+#Applying 'fdrtool' to the pvalues 
+fdr_results <- fdrtool(pvalues, statistic = "pvalue")
+
+#Displays summary of results
+summary(fdr_results)
+
+# Add q-values to the original results table
+results$qval <- fdr_results$qval
+
+head(results)
+
+significant_genes <- subset(results, qval < 0.1)
+head(significant_genes)
+significant_genes
+```
+
+3.  Saving the data in a portable csv format 
+
+``` {r="false"}
+#Saving differential expression analysis data to a csv file
+write.csv(as.data.frame(exNA_results), file = "differential_expression_results.csv")
+
+#Saving the significant genes (with q-value < 0.1) to a csv file (from fdrtools)
+write.csv(as.data.frame(significant_genes), file = "significant_genes_results.csv")
+```
+
+# Downstream analysis visualisation
+
+## Create a heatmap to visualise the differentially expressed genes from DESeq2 data (In R)
+
+1.  Install and load the packages needed
+
+``` {r="false"}
+#Install packages 
+install.packages("pheatmap")
+
+#Load packages
+library(DESeq2)
+library(reshape2)
+library(ggplot2)
+library(pheatmap)
+```
+
+2.  Import DESeq dataset and save it as an RDS
+
+``` {r="false"}
+# Read the significant genes csv from DeSeq2 analysis into R
+results_df <- read.csv("significant_genes_results.csv", row.names = 1)
+
+# Save the data frame as an RDS file with the name 'dds_object.rds'
+saveRDS(results_df, file = "dds_object.rds")
+
+# Loading the RDS file
+dds <- readRDS("dds_object.rds") 
+
+#View the data set 
+dds
+```
+
+3.  Transform the data set
+
+Transforming the data set into a regularized log transformation makes RNA-Seq data suitable for visualization and analysis such as in heatmaps
+
+``` {r="false"}
+# Apply a regularized log transformation 
+rld = rlog(dds, blind = TRUE)  
+#blind = TRUE makes sure that variances are stabilized across all genes without taking into account experimental groups. 
+
+#View the dataset
+rld 
+```
+
+4.  Extract phenotype and strain information to annotate the Heatmap
+
+``` {r="false"}
+#Extract Column data from Transformed dataset
+col_data = colData(rld) 
+
+#Extract the Phenotype column from the metadata in col_data
+phenotype = col_data$phenotype 
+
+#Extract the Strain column from the metadata in col_data
+strain = col_data$strain 
+```
+
+5.  Extract Transformed Data for the Heatmap for normalisation
+
+``` {r="false"}
+#Extract numerical matrix of log-transformed gene expression data 
+rld_matrix = assay(rld) 
+
+#View first three rows of the matrix
+head(rld_matrix,3) 
+```
+
+6.  Select the 50 most highly expressed genes from the rld_matrix dataset
+
+``` {r="false"}
+# Identify Top 50 highly expressed genes 
+top_genes = head(order(rowMeans(rld_matrix), decreasing = TRUE), 50) # rowMeans will calculate the average expression level of each row (gene) and decreasing = TRUE, selects the top 50 genes in descending order.
+
+#Extract Top 50 Data for Heatmap
+heatmap_data = rld_matrix[top_genes,] #ensures that the heatmap data has the top 50 gene expression values. 
+
+#Display first 3 rows of the heatmap_data matrix
+head(heatmap_data,3) 
+```
+
+7.  Create the heatmap
+
+``` {r="false"}
+# Create a matrix of sample annotations (phenotype and strain)
+sample_annotation <- data.frame(Phenotype = phenotype, Strain = strain) 
+
+# Set rownames to align with column names of rld_matrix
+rownames(sample_annotation) <- colnames(rld_matrix) 
+
+
+# Creating the heatmap
+pheatmap(rld_matrix[top_genes, ],
+         annotation_col = sample_annotation,  # Add phenotype and strain annotations
+         cluster_rows = FALSE,                 # Cluster genes
+         cluster_cols = TRUE,                 # Cluster samples
+         show_rownames = TRUE,               # Hide gene names
+         show_colnames = TRUE,                # Show sample names
+         main = "Top 50 Variable Genes",
+         fontsize_row = 3.5)
+```
+
+A Heatmap showing the top 50 highly most expressed genes will be shown, showing the differentially expressed genes across the sample types that have different phenotypes and evolutionary patterns.
+
+## Create a PCA (Principal Component Analysis) plot
+
+This is vital for RNA-Seq analysis, showing how the samples cluster depending on their gene expression patterns.Those with similar gene expression patterns will cluster together.
+
+1.  Install/load necessary packages
+
+``` {r="false"}
+install.packages("ggfortify")
+library(ggplot2)
+library(ggfortify)
+```
+
+2.  Pre-processing RNA-Seq data and conducting PCA to visualise gene variablity
+
+``` {r="false"}
+# Use count_matrix data for PCA data
+head(count_matrix)
+
+# Establishing PCA variability across columns 
+zero_var_cols <- apply(count_matrix, 1, function(x) var(x) == 0) #identifies rows where variance=0 and removes them
+
+print(colnames(count_matrix)[zero_var_cols])
+
+# Filtering constant 0s
+filtered_matrix <- count_matrix[apply(count_matrix, 1, function(x) var(x) > 0), ]
+
+# Applying PCA on transposed and scaled data matrix
+pca <- prcomp(t(filtered_matrix), scale. = TRUE)
+summary(pca)
+
+# Showing string of phenotype metadata and strain metadata
+metadata$phenotype
+metadata$strain
+```
+
+3.  PCA plotting
+
+``` {r="false"}
+# Create a PCA plot, phenotype is colored, strain is shaped
+PCAplot <- ggplot(pca, aes(x = PC1, y = PC2, colour = metadata$phenotype, shape = metadata$strain)) + #PC1 and PC2 are set as the axes with color based on phenotype and shape based on strain
+         geom_point(size = 3)+ #point size is set for 3 
+         labs(title = "Transcriptomics PCA Plot", x = "PC1: 35.5% variance", y = "PC2: 28.6% variance", colour = "Phenotype", shape = "Strain Type") + #add titles and axes labels, explaining %variance in PC1 and 2
+         scale_color_manual(values = c("fumarate_producer" = "indianred2", "malate_producer" = "olivedrab3", "succinate_producer" = "turquoise3", "wild_type" = "orchid2"), labels = c("Fumarate Producer", "Malate Producer", "Succinate Producer", "Wild Type")) + #set the colors for the different phenotypes and apply their labels
+         scale_shape_manual(values = c("parental" = 15, "evolved" = 16, "wild_type" = 17), labels = c("Parental", "Evolved", "Wild Type")) + #set shapes to the different strains and apply their labels
+         theme_bw() + #set a white background for the figure
+         theme(legend.position = "bottom") #legend is positioned at the bottom of the figure
+
+# Saving plot as image
+ggsave("PCAplot.png", plot = PCAplot, width = 12, height = 8)
+```

@@ -1,0 +1,67 @@
+---
+title: "appbio_group4_heatmap"
+author: "Siwanart Ma"
+format: html
+---
+```{r}
+library(DESeq2)
+library(reshape2)
+library(ggplot2)
+#install.packages("pheatmap")
+library(pheatmap)
+```
+
+Import DESeq dataset
+dds_object is the significant genes exported after DESeq2
+```{r}
+dds <- readRDS("dds_object.rds")
+dds
+```
+Regularized log transformation
+```{r}
+rld = rlog(dds, blind = TRUE)
+rld
+```
+Extract phenotype and strain information
+```{r}
+col_data = colData(rld)
+phenotype = col_data$phenotype
+strain = col_data$strain
+```
+
+Extract Transformed Data for Heatmap
+```{r}
+# Show log transformed data
+rld_matrix = assay(rld)
+head(rld_matrix,3)
+```
+Select Top 50 genes from the log transformed data
+```{r}
+top_genes = head(order(rowMeans(rld_matrix), decreasing = TRUE), 50)
+heatmap_data = rld_matrix[top_genes,]
+head(heatmap_data,3)
+```
+Make a heatmap
+```{r}
+# Create a matrix of sample annotations (phenotype and strain)
+sample_annotation <- data.frame(Phenotype = phenotype, Strain = strain)
+rownames(sample_annotation) <- colnames(rld_matrix)
+
+# Create the heatmap
+pheatmap(rld_matrix[top_genes, ],
+         annotation_col = sample_annotation,  # Add phenotype and strain annotations
+         cluster_rows = FALSE,                 # Cluster genes
+         cluster_cols = TRUE,                 # Cluster samples
+         show_rownames = TRUE,               # Hide gene names
+         show_colnames = TRUE,                # Show sample names
+         main = "Top 50 Variable Genes",
+         fontsize_row = 3.5)
+```
+
+
+
+
+
+
+
+
