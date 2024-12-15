@@ -392,6 +392,7 @@ library(ggplot2)
 library(Rtsne)
 library(umap)
 library(matrixStats)
+library(dplyr)
 ```
 
 2.  Read and load the count files and metadata
@@ -408,6 +409,20 @@ metadata <- read.csv(file ="phenotype_metadata.csv", header = TRUE, row.names = 
 
 #View the metadata
 head(metadata)
+
+# Grouping Phenotype & Strain together to avoid redundancy in Differential Expression
+metadata$group <- factor(paste(metadata$phenotype, metadata$strain, sep = "_"))
+metadata
+
+# Temporarily reading group as characters for renaming process
+metadata$group <- as.character(metadata$group)
+
+# Renaming wild_type_wild_type to just wild_type
+metadata <- metadata %>%
+  mutate(group = ifelse(group == "wild_type_wild_type", "wild_type", group))
+
+# Changing back to factors for Differential Expression
+metadata$group <- as.factor(metadata$group)
 ```
 
 3.  Extract and Save gene-level annotations from GTF file in a GTF format
@@ -422,20 +437,7 @@ genes <- genes(txdb)
 genes_df <- as.data.frame(genes)
 
 # Extract only the gene IDs (rownames from genes_df)
-gene_ids <- rownames(genes_df)
-
-# View the first few gene IDs
-head(gene_ids)
-
-
-# Save the gene list to a file
-write.table(gene_ids, file = "gene_ids.txt", quote = FALSE, row.names = FALSE, col.names = FALSE)
-
-#Read the gene_ids.txt into a new data frame 
-reference_genes <- read.table("gene_ids.txt", header = FALSE, stringsAsFactors = FALSE)
-
-#Extracts first column from reference_genes, containing gene_ids
-reference_genes <- reference_genes$V1 
+reference_genes <- rownames(genes_df)
 ```
 
 4.  Align and Process Gene count data to the reference genome
@@ -486,35 +488,27 @@ The DeSeq2 data set will manage and store the RNA-Seq data and metadata.
 # Creating the deseq2 data set using count matrix and phenotype metadata
 dds <- DESeqDataSetFromMatrix(countData = count_matrix,
                               colData = metadata,
-                              design = ~ phenotype)
-
-#Filtering low-count genes to those with at least 10 reads in at least 2 samples 
-dds <- dds[rowSums(counts(dds) >= 10) >= 2, ]
+                              design = ~ group)
 ```
 
 7.  Normalize the data and handle missing values from differential gene analysis
 
 ``` {r="false"}
 #Normalising and fitting the model
-dds <- DESeq(dds) #contains normalised counts 
+dds <- DESeq(dds) #Contains normalised counts 
 
 #Extracting and inspecting results
-results <- results(dds)
+results <- results(dds) # Automatically performs independent filtering
 head(results)
 
 # Check for NA values in the results dataframe
-sum(is.na(results)) 
+sum(is.na(results))
 
-# Identify where the missing values are from
-sum(is.na(results$pvalue)) # looks at NAs in p-value (5 NAs)
+# Identify any missing values in pvalue column
+sum(is.na(results$pvalue))
 
-# Excluding missing values (NA) from analysis
+# Excluding missing values (NA) from analysis (in pvalue column)
 exNA_results <- results[!is.na(results$pvalue), ]
-head(exNA_results)
-
-#Confirming whether NA values have been excluded
-sum(is.na(exNA_results))
-sum(is.na(exNA_results$padj))
 ```
 
 # Adjusting the P-values with the FDR tool for Multiple Testing Correction
@@ -532,7 +526,7 @@ library(fdrtool)
 
 ``` {r="false"}
 #Extract p-values from 'results' and assign to pvalues
-pvalues <- results$pvalue
+pvalues <- exNA_results$pvalue
 
 #Applying 'fdrtool' to the pvalues 
 fdr_results <- fdrtool(pvalues, statistic = "pvalue")
@@ -541,11 +535,11 @@ fdr_results <- fdrtool(pvalues, statistic = "pvalue")
 summary(fdr_results)
 
 # Add q-values to the original results table
-results$qval <- fdr_results$qval
+exNA_results$qval <- fdr_results$qval
 
-head(results)
+head(exNA_results)
 
-significant_genes <- subset(results, qval < 0.1)
+significant_genes <- subset(exNA_results, qval < 0.1)
 head(significant_genes)
 significant_genes
 ```
@@ -553,11 +547,8 @@ significant_genes
 3.  Saving the data in a portable csv format 
 
 ``` {r="false"}
-#Saving differential expression analysis data to a csv file
-write.csv(as.data.frame(exNA_results), file = "differential_expression_results.csv")
-
 #Saving the significant genes (with q-value < 0.1) to a csv file (from fdrtools)
-write.csv(as.data.frame(significant_genes), file = "significant_genes_results.csv")
+write.csv(as.data.frame(significant_genes), file = "significant_genes.csv")
 ```
 
 # Downstream analysis visualisation
@@ -581,7 +572,7 @@ library(pheatmap)
 
 ``` {r="false"}
 # Read the significant genes csv from DeSeq2 analysis into R
-results_df <- read.csv("significant_genes_results.csv", row.names = 1)
+results_df <- read.csv("significant_genes.csv", row.names = 1)
 
 # Save the data frame as an RDS file with the name 'dds_object.rds'
 saveRDS(results_df, file = "dds_object.rds")
@@ -680,29 +671,22 @@ library(ggfortify)
 2.  Pre-processing RNA-Seq data and conducting PCA to visualise gene variablity
 
 ``` {r="false"}
-# Use count_matrix data for PCA data
-head(count_matrix)
-
-# Establishing PCA variability across columns 
-zero_var_cols <- apply(count_matrix, 1, function(x) var(x) == 0) #identifies rows where variance=0 and removes them
-
-print(colnames(count_matrix)[zero_var_cols])
-
-# Filtering constant 0s
-filtered_matrix <- count_matrix[apply(count_matrix, 1, function(x) var(x) > 0), ]
+# Constructing a normalized count matrix for PCA
+norm_counts <- counts(dds, normalized = TRUE)
+summary(norm_counts)
 
 # Applying PCA on transposed and scaled data matrix
-pca <- prcomp(t(filtered_matrix), scale. = TRUE)
+pca <- prcomp(t(norm_counts), scale. = TRUE)
 summary(pca)
-
-# Showing string of phenotype metadata and strain metadata
-metadata$phenotype
-metadata$strain
 ```
 
 3.  PCA plotting
 
 ``` {r="false"}
+# Reading variables as factors due to issues in PCA legend
+metadata$phenotype <- factor(metadata$phenotype, levels = c("fumarate_producer", "malate_producer", "succinate_producer", "wild_type"))
+metadata$strain <- factor(metadata$strain, levels = c("parental", "evolved", "wild_type"))
+
 # Create a PCA plot, phenotype is colored, strain is shaped
 PCAplot <- ggplot(pca, aes(x = PC1, y = PC2, colour = metadata$phenotype, shape = metadata$strain)) + #PC1 and PC2 are set as the axes with color based on phenotype and shape based on strain
          geom_point(size = 3)+ #point size is set for 3 
