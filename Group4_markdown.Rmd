@@ -57,8 +57,7 @@ conda config --add channels bioconda
 conda config --add channels conda-forge
 
 # Create a new conda environment with specific versions specified in the paper
-conda create -n bioenv fastqc=0.11.5 cutadapt=2.3 faqcs=2.08 star= 2.5.2a fdrtool= 1.2.15 htseq= 0.9.1 -y
-
+conda create -n bioenv fastqc=0.11.5 cutadapt=2.3 faqcs=2.08 star= 2.5.2a fdrtool= 1.2.15 htseq= 0.9.1
 # Print a message about how to activate the environment
 echo "To activate your environment, run: conda activate bioenv" 
 
