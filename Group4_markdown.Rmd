@@ -18,13 +18,13 @@ The first step was to setup the work environment and data on the HPC, where we n
 
 1.  Log into the CREATE node and start an interactive job
 
-``` {bash="FALSE"}
+``` {bash, eval = FALSE}
 ssh -i ~/.ssh/ed_create youremail@hpc.create.kcl.ac.uk
 ```
 
 2.  Navigate to the scratch directory and star an interactive job
 
-``` {bash="FALSE"}
+``` {bash, eval = FALSE}
 cd /scratch_tmp/grp/msc_appbio/group4_tmp/ #navigating to the scratch directory
 
 srun -p msc_appbio --pty /bin/bash  
@@ -36,7 +36,7 @@ srun -p msc_appbio --pty /bin/bash
 
 3.  Create new directories to store files
 
-``` {bash="FALSE"}
+``` {bash, eval = FALSE}
 mkdir raw_data_rna
 mkdir processed_data 
 mkdir ref_genome
@@ -47,7 +47,7 @@ mkdir htseq_counts
 
 4.  Install and activate the tools needed for environment setup using Conda in the environment.sh nano file
 
-``` {bash="FALSE"}
+``` {bash, eval = FALSE}
 #!/bin/bash
 
 echo "start of the pipeline"
@@ -72,7 +72,7 @@ conda activate bioenv
 
 1.  Create a nano script containing the fastq URLs downloaded from <https://www.ebi.ac.uk/biostudies/arrayexpress/studies/E-MTAB-9499>
 
-``` {bash="FALSE"}
+``` {bash, eval = FALSE}
 nano links2download.txt  #contains all the fastq URLs
 ```
 
@@ -80,7 +80,7 @@ nano links2download.txt  #contains all the fastq URLs
 
 Bash script (download.sh) was created to automate the download process using the wget command:
 
-``` {bash="FALSE"}
+``` {bash, eval = FALSE}
 nano download.sh #creates nano script
 
 #!/bin/bash
@@ -125,7 +125,7 @@ The NIH webpage was visited and the name of the reference genome (GCA_000269885)
 
 The data set was downloaded onto our local terminals and then pushed data into CREATE using sftp:
 
-``` {bash="FALSE"}
+``` {bash, eval = FALSE}
 sftp -i~/.ssh/create_msc k24088153@hpc.create.kcl.ac.uk #logs into the secure file transfer protocol
 sftp> put GCA_000269885.1 #file with the reference genome from our local is transported to our ref_genome directory on the HPC.
 
@@ -141,7 +141,7 @@ The output is a list of fastq.gz files from the RNA-seq data and a gtf and .fna 
 
 1.  Create a Nano script to fastqc the fastq.gz files
 
-``` {bash="FALSE"}
+``` {bash, eval = FALSE}
 nano fastqc_RNA #creates nano script
 
 In the nano script:
@@ -173,7 +173,7 @@ The next step was to align the reads to the reference genome using STAR. In orde
 
 1.  Creating an alignment index
 
-``` {bash="FALSE"}
+``` {bash, eval = FALSE}
 nano star_index.sh #creates a nano script
 
 In the nano script:
@@ -195,7 +195,7 @@ The output of indexing provides STAR the ability to perfom alignment and importa
 
 2.  Alignment of RNA-Seq raw files to the reference genome using STAR
 
-``` {bash="FALSE"}
+``` {bash, eval = FALSE}
 nano star_alignment.sh #creates nano script
 
 In the nano script:
@@ -267,7 +267,7 @@ The output should be _Aligned.out.bam files for the 20 fastq files
 
 This improves the efficiency of the RNA-Seq data for downstream analysis
 
-``` {bash="FALSE"}
+``` {bash, eval = FALSE}
 nano sort_and_index_coord_bams.sh #creates a nano script
 
 In the nano script:
@@ -326,7 +326,7 @@ The output should be .sortedByCoord.out.sorted.bam files and should highlight th
 
 Then the mapped reads were used to create gene-level read count tables using HTSeq, essential for downstream analyses.
 
-``` {bash="FALSE"}
+``` {bash, eval = FALSE}
 nano counts.sh # creates a nano script 
 
 In the nano script:
