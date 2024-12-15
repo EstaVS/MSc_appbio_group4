@@ -1,14 +1,11 @@
 ---
-title: 'Assessing the reproducibility of the paper ''Model‐guided development of an
-  evolutionarily stable yeast chassis'' '
+title: 'Appendix'
 output:
   word_document: default
   html_document: default
   pdf_document: default
 date: "2024-12-11"
 ---
-
-# Appendix
 
 The appendix provides the code used to reproduce the RNA-Seq analyses in the paper provided.
 
@@ -18,13 +15,13 @@ The first step was to setup the work environment and data on the HPC, where we n
 
 1.  Log into the CREATE node and start an interactive job
 
-``` {bash, eval = FALSE}
+```{bash, eval = FALSE}
 ssh -i ~/.ssh/ed_create youremail@hpc.create.kcl.ac.uk
 ```
 
 2.  Navigate to the scratch directory and star an interactive job
 
-``` {bash, eval = FALSE}
+```{bash, eval = FALSE}
 cd /scratch_tmp/grp/msc_appbio/group4_tmp/ #navigating to the scratch directory
 
 srun -p msc_appbio --pty /bin/bash  
@@ -36,7 +33,7 @@ srun -p msc_appbio --pty /bin/bash
 
 3.  Create new directories to store files
 
-``` {bash, eval = FALSE}
+```{bash, eval = FALSE}
 mkdir raw_data_rna
 mkdir processed_data 
 mkdir ref_genome
@@ -47,7 +44,7 @@ mkdir htseq_counts
 
 4.  Install and activate the tools needed for environment setup using Conda in the environment.sh nano file
 
-``` {bash, eval = FALSE}
+```{bash, eval = FALSE}
 #!/bin/bash
 
 echo "start of the pipeline"
@@ -71,7 +68,7 @@ conda activate bioenv
 
 1.  Create a nano script containing the fastq URLs downloaded from <https://www.ebi.ac.uk/biostudies/arrayexpress/studies/E-MTAB-9499>
 
-``` {bash, eval = FALSE}
+```{bash, eval = FALSE}
 nano links2download.txt  #contains all the fastq URLs
 ```
 
@@ -79,7 +76,7 @@ nano links2download.txt  #contains all the fastq URLs
 
 Bash script (download.sh) was created to automate the download process using the wget command:
 
-``` {bash, eval = FALSE}
+```{bash, eval = FALSE}
 nano download.sh #creates nano script
 
 #!/bin/bash
@@ -124,7 +121,7 @@ The NIH webpage was visited and the name of the reference genome (GCA_000269885)
 
 The data set was downloaded onto our local terminals and then pushed data into CREATE using sftp:
 
-``` {bash, eval = FALSE}
+```{bash, eval = FALSE}
 sftp -i~/.ssh/create_msc k24088153@hpc.create.kcl.ac.uk #logs into the secure file transfer protocol
 sftp> put GCA_000269885.1 #file with the reference genome from our local is transported to our ref_genome directory on the HPC.
 
@@ -136,11 +133,11 @@ sftp> put GCA_000269885.1 #file with the reference genome from our local is tran
 
 The output is a list of fastq.gz files from the RNA-seq data and a gtf and .fna file for the reference genome.
 
-# Quality Control of our files, using fastqc
+# Quality Control using FastQC
 
 1.  Create a Nano script to fastqc the fastq.gz files
 
-``` {bash, eval = FALSE}
+```{bash, eval = FALSE}
 nano fastqc_RNA #creates nano script
 
 In the nano script:
@@ -172,7 +169,7 @@ The next step was to align the reads to the reference genome using STAR. In orde
 
 1.  Creating an alignment index
 
-``` {bash, eval = FALSE}
+```{bash, eval = FALSE}
 nano star_index.sh #creates a nano script
 
 In the nano script:
@@ -194,7 +191,7 @@ The output of indexing provides STAR the ability to perfom alignment and importa
 
 2.  Alignment of RNA-Seq raw files to the reference genome using STAR
 
-``` {bash, eval = FALSE}
+```{bash, eval = FALSE}
 nano star_alignment.sh #creates nano script
 
 In the nano script:
@@ -260,13 +257,13 @@ for FASTQ in $FASTQ_DIR/*.fastq.gz;do
 done
 ```
 
-The output should be _Aligned.out.bam files for the 20 fastq files
+The output should be \_Aligned.out.bam files for the 20 fastq files
 
 3.  Sort and Index the BAM files using samtools
 
 This improves the efficiency of the RNA-Seq data for downstream analysis
 
-``` {bash, eval = FALSE}
+```{bash, eval = FALSE}
 nano sort_and_index_coord_bams.sh #creates a nano script
 
 In the nano script:
@@ -325,7 +322,7 @@ The output should be .sortedByCoord.out.sorted.bam files and should highlight th
 
 Then the mapped reads were used to create gene-level read count tables using HTSeq, essential for downstream analyses.
 
-``` {bash, eval = FALSE}
+```{bash, eval = FALSE}
 nano counts.sh # creates a nano script 
 
 In the nano script:
@@ -376,7 +373,7 @@ Downstream analysis of gene counting was done using the DeSeq2 tool in R. DeSeq2
 
 1.  Set the required working directory and install/load packages that are needed
 
-``` {r, eval = FALSE}
+```{r, eval = FALSE}
 setwd("~/Desktop/MSc_appbio_group4/")
 
 #Install the packages needed
@@ -396,7 +393,7 @@ library(dplyr)
 
 2.  Read and load the count files and metadata
 
-``` {r, eval = FALSE}
+```{r, eval = FALSE}
 #List and filter the files collected from HTSeq count data, returning only .txt files 
 count_file_list <- list.files(path = "htseq_counts/", pattern = "*.txt", full.names = TRUE)
 
@@ -426,7 +423,7 @@ metadata$group <- as.factor(metadata$group)
 
 3.  Extract and Save gene-level annotations from GTF file in a GTF format
 
-``` {r, eval = FALSE}
+```{r, eval = FALSE}
 # Load the GTF file and convert it into a TxDb
 txdb <- makeTxDbFromGFF(file = "genomic.gtf", format = "gtf")
 txdb
@@ -441,7 +438,7 @@ reference_genes <- rownames(genes_df)
 
 4.  Align and Process Gene count data to the reference genome
 
-``` {r, eval = FALSE}
+```{r, eval = FALSE}
 # Function to Align Counts to Reference Genes
 read_and_align <- function(file, reference_genes) {
  
@@ -483,7 +480,7 @@ sum(is.na(count_matrix))
 
 The DeSeq2 data set will manage and store the RNA-Seq data and metadata.
 
-``` {r, eval = FALSE}
+```{r, eval = FALSE}
 # Creating the deseq2 data set using count matrix and phenotype metadata
 dds <- DESeqDataSetFromMatrix(countData = count_matrix,
                               colData = metadata,
@@ -492,7 +489,7 @@ dds <- DESeqDataSetFromMatrix(countData = count_matrix,
 
 6.  Normalize the data and handle missing values from differential gene analysis
 
-``` {r, eval = FALSE}
+```{r, eval = FALSE}
 #Normalising and fitting the model
 dds <- DESeq(dds) #Contains normalised counts 
 
@@ -516,14 +513,14 @@ For differential gene expression analysis in RNA-Seq, each gene will be tested f
 
 1.  Install and Load the necessary packages
 
-``` {r, eval = FALSE}
+```{r, eval = FALSE}
 install.packages("fdrtool")
 library(fdrtool)
 ```
 
 2.  Multiple Testing Correction with FDR
 
-``` {r, eval = FALSE}
+```{r, eval = FALSE}
 #Extract p-values from 'results' and assign to pvalues
 pvalues <- exNA_results$pvalue
 
@@ -543,9 +540,9 @@ head(significant_genes)
 significant_genes
 ```
 
-3.  Saving the data in a portable csv format 
+3.  Saving the data in a portable csv format
 
-``` {r, eval = FALSE}
+```{r, eval = FALSE}
 #Saving the significant genes (with q-value < 0.1) to a csv file (from fdrtools)
 write.csv(as.data.frame(significant_genes), file = "significant_genes.csv")
 ```
@@ -556,7 +553,7 @@ write.csv(as.data.frame(significant_genes), file = "significant_genes.csv")
 
 1.  Install and load the packages needed
 
-``` {r, eval = FALSE}
+```{r, eval = FALSE}
 #Install packages 
 install.packages("pheatmap")
 
@@ -569,7 +566,7 @@ library(pheatmap)
 
 2.  Import DESeq dataset and save it as an RDS
 
-``` {r, eval = FALSE}
+```{r, eval = FALSE}
 # Read the significant genes csv from DeSeq2 analysis into R
 results_df <- read.csv("significant_genes.csv", row.names = 1)
 
@@ -587,7 +584,7 @@ dds
 
 Transforming the data set into a regularized log transformation makes RNA-Seq data suitable for visualization and analysis such as in heatmaps
 
-``` {r, eval = FALSE}
+```{r, eval = FALSE}
 # Apply a regularized log transformation 
 rld = rlog(dds, blind = TRUE)  
 #blind = TRUE makes sure that variances are stabilized across all genes without taking into account experimental groups. 
@@ -598,7 +595,7 @@ rld
 
 4.  Extract phenotype and strain information to annotate the Heatmap
 
-``` {r, eval = FALSE}
+```{r, eval = FALSE}
 #Extract Column data from Transformed dataset
 col_data = colData(rld) 
 
@@ -611,7 +608,7 @@ strain = col_data$strain
 
 5.  Extract Transformed Data for the Heatmap for normalisation
 
-``` {r, eval = FALSE}
+```{r, eval = FALSE}
 #Extract numerical matrix of log-transformed gene expression data 
 rld_matrix = assay(rld) 
 
@@ -621,7 +618,7 @@ head(rld_matrix,3)
 
 6.  Select the 50 most highly expressed genes from the rld_matrix dataset
 
-``` {r, eval = FALSE}
+```{r, eval = FALSE}
 # Identify Top 50 highly expressed genes 
 top_genes = head(order(rowMeans(rld_matrix), decreasing = TRUE), 50) # rowMeans will calculate the average expression level of each row (gene) and decreasing = TRUE, selects the top 50 genes in descending order.
 
@@ -634,7 +631,7 @@ head(heatmap_data,3)
 
 7.  Create the heatmap
 
-``` {r, eval = FALSE}
+```{r, eval = FALSE}
 # Create a matrix of sample annotations (phenotype and strain)
 sample_annotation <- data.frame(Phenotype = phenotype, Strain = strain) 
 
@@ -661,7 +658,7 @@ This is vital for RNA-Seq analysis, showing how the samples cluster depending on
 
 1.  Install/load necessary packages
 
-``` {r, eval = FALSE}
+```{r, eval = FALSE}
 install.packages("ggfortify")
 library(ggplot2)
 library(ggfortify)
@@ -669,7 +666,7 @@ library(ggfortify)
 
 2.  Pre-processing RNA-Seq data and conducting PCA to visualise gene variablity
 
-``` {r, eval = FALSE}
+```{r, eval = FALSE}
 # Constructing a normalized count matrix for PCA
 norm_counts <- counts(dds, normalized = TRUE)
 summary(norm_counts)
@@ -681,7 +678,7 @@ summary(pca)
 
 3.  PCA plotting
 
-``` {r, eval = FALSE}
+```{r, eval = FALSE}
 # Reading variables as factors due to issues in PCA legend
 metadata$phenotype <- factor(metadata$phenotype, levels = c("fumarate_producer", "malate_producer", "succinate_producer", "wild_type"))
 metadata$strain <- factor(metadata$strain, levels = c("parental", "evolved", "wild_type"))
