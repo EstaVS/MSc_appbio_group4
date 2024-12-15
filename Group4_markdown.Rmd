@@ -480,7 +480,7 @@ all(rownames(metadata) == colnames(count_matrix))
 sum(is.na(count_matrix))
 ```
 
-6.  Creating a DeSeq2 dataset and filtering low count genes
+5.  Creating a DeSeq2 dataset and filtering low count genes
 
 The DeSeq2 data set will manage and store the RNA-Seq data and metadata.
 
@@ -491,7 +491,7 @@ dds <- DESeqDataSetFromMatrix(countData = count_matrix,
                               design = ~ group)
 ```
 
-7.  Normalize the data and handle missing values from differential gene analysis
+6.  Normalize the data and handle missing values from differential gene analysis
 
 ``` {r, eval = FALSE}
 #Normalising and fitting the model
@@ -513,7 +513,7 @@ exNA_results <- results[!is.na(results$pvalue), ]
 
 # Adjusting the P-values with the FDR tool for Multiple Testing Correction
 
-For differential gene expression analysis in RNA-Seq, each gene will be tested for statistical significance. Loads of statistical tests are performed and these multiple tests should be corrected for. If not, the number of genes being highlighted as differentially expressed will be inaccurate, leading to incorrect conclusions and invalid downstream analysis.
+For differential gene expression analysis in RNA-Seq, each gene will be tested for statistical significance. Multiple statistical tests are performed and these tests should be corrected for using FDR.
 
 1.  Install and Load the necessary packages
 
